@@ -1,234 +1,95 @@
--- Gui setup
-local P,W,RS,UIS = game.Players.LocalPlayer, workspace, game:GetService("RunService"), game:GetService("UserInputService")
-local pg = P:WaitForChild("PlayerGui")
+--// Derap Hitbox by Tran & An
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local char = player.Character or player.CharacterAdded:Wait()
+local humanoid = char:WaitForChild("Humanoid")
 
--- Cleanup old GUI
-local old = pg:FindFirstChild("Derap")
-if old then old:Destroy() end
+-- GUI
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "derap"
+gui.ResetOnSpawn = false
 
--- Main GUI
-local gui = Instance.new("ScreenGui", pg)
-gui.Name = "Derap"
-
+-- khung chính
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0,400,0,300)
-frame.Position = UDim2.new(0.5,-200,0.5,-150)
-frame.AnchorPoint = Vector2.new(0.5,0.5)
-frame.BackgroundTransparency = 0.4
-Instance.new("UICorner", frame)
-Instance.new("UIDragDetector", frame)
+frame.Size = UDim2.new(0, 160, 0, 100)
+frame.Position = UDim2.new(0.05, 0, 0.6, 0)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Active = true
+frame.Draggable = true
+frame.Visible = true
 
--- Title
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1,-35,0,40)
-title.Position = UDim2.new(0,10,0,0)
-title.BackgroundTransparency = 1
-title.Text = "Derap"
-title.TextColor3 = Color3.new(0,0,0)
-title.Font = Enum.Font.GothamBold
-title.TextSize = 18
-title.TextXAlignment = Enum.TextXAlignment.Left
+-- nút bật/tắt hitbox
+local toggle = Instance.new("TextButton", frame)
+toggle.Size = UDim2.new(0, 140, 0, 25)
+toggle.Position = UDim2.new(0, 10, 0, 10)
+toggle.Text = "Bật Hitbox"
+toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Credit
-local credit = Instance.new("TextLabel", frame)
-credit.Size = UDim2.new(0.5,0,0,20)
-credit.Position = UDim2.new(0,10,1,-25)
-credit.BackgroundTransparency = 1
-credit.Text = "by: tran"
-credit.TextColor3 = Color3.new(1,1,1)
-credit.Font = Enum.Font.Gotham
-credit.TextSize = 14
-credit.TextXAlignment = Enum.TextXAlignment.Left
+-- nút đổi kiểu hitbox
+local mode = Instance.new("TextButton", frame)
+mode.Size = UDim2.new(0, 140, 0, 25)
+mode.Position = UDim2.new(0, 10, 0, 45)
+mode.Text = "Kiểu: Đường thẳng"
+mode.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+mode.TextColor3 = Color3.fromRGB(255, 255, 255)
 
--- Minimize button 卐
-local minBtn = Instance.new("TextButton", gui)
-minBtn.Size = UDim2.new(0,40,0,40)
-minBtn.Position = UDim2.new(0.5,-20,0.5,-20)
-minBtn.Text = "卐"
-minBtn.Visible = false
-Instance.new("UICorner", minBtn)
+-- label tạm “By Tran & An”
+local bylabel = Instance.new("TextLabel", gui)
+bylabel.Text = "By Tran & An"
+bylabel.Size = UDim2.new(0, 200, 0, 50)
+bylabel.Position = UDim2.new(0.7, 0, 0.05, 0)
+bylabel.TextScaled = true
+bylabel.BackgroundTransparency = 1
+bylabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+task.delay(5, function() bylabel:Destroy() end)
 
--- Close button
-local closeBtn = Instance.new("TextButton", frame)
-closeBtn.Size = UDim2.new(0,25,0,25)
-closeBtn.Position = UDim2.new(1,-30,0,7)
-closeBtn.BackgroundTransparency = 1
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.new(1,1,1)
+-- logic hitbox
+local enabled = false
+local shape = "line"
+local hitbox
 
--- Hitbox NPC Size
-local npcBox = Instance.new("TextBox", frame)
-npcBox.Size = UDim2.new(0.3,0,0.07,0)
-npcBox.Position = UDim2.new(0.65,0,0.85,0)
-npcBox.Text = "5"
-npcBox.ClearTextOnFocus = false
+local function createHitbox()
+	if hitbox then hitbox:Destroy() end
+	hitbox = Instance.new("Part")
+	hitbox.Anchored = true
+	hitbox.CanCollide = false
+	hitbox.Material = Enum.Material.Neon
+	hitbox.Color = Color3.fromRGB(255, 0, 0)
+	hitbox.Transparency = 0.4
+	hitbox.Parent = workspace
 
--- ESP toggle
-local espBtn = Instance.new("TextButton", frame)
-espBtn.Size = UDim2.new(0,120,0,30)
-espBtn.Position = UDim2.new(0.05,0,0.02,0)
-espBtn.Text = "ESP: ON"
-Instance.new("UICorner", espBtn)
-local espEnabled = true
-espBtn.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    espBtn.Text = "ESP: "..(espEnabled and "ON" or "OFF")
-end)
-
--- Minimize / close behavior
-local lastPos = frame.Position
-closeBtn.MouseButton1Click:Connect(function()
-    lastPos = frame.Position
-    frame.Visible = false
-    minBtn.Visible = true
-end)
-minBtn.MouseButton1Click:Connect(function()
-    frame.Position = lastPos
-    frame.Visible = true
-    minBtn.Visible = false
-end)
-
--- Drag min button
-do
-    local dragging, startPos, startBtn
-    minBtn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startPos = input.Position
-            startBtn = minBtn.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging=false end
-            end)
-        end
-    end)
-    UIS.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType==Enum.UserInputType.MouseMovement) then
-            local delta = input.Position - startPos
-            minBtn.Position = UDim2.new(startBtn.X.Scale,startBtn.X.Offset+delta.X,startBtn.Y.Scale,startBtn.Y.Offset+delta.Y)
-        end
-    end)
+	if shape == "line" then
+		hitbox.Size = Vector3.new(0.4, 0.4, 5)
+	else
+		hitbox.Shape = Enum.PartType.Ball
+		hitbox.Size = Vector3.new(3, 3, 3)
+	end
 end
 
--- NPC tracking
-local NPCs = {}
-W.ChildAdded:Connect(function(c) if c:IsA("Model") then NPCs[c]=true end end)
-W.ChildRemoved:Connect(function(c) if NPCs[c] then NPCs[c]=nil end end)
-
--- Hit function
-local function hit(target, handle)
-    local hum = target.Parent:FindFirstChildOfClass("Humanoid")
-    if hum and target.Parent.Name ~= P.Name then
-        for _,p in pairs(target.Parent:GetChildren()) do
-            if p:IsA("BasePart") then
-                firetouchinterest(p,handle,0)
-                firetouchinterest(p,handle,1)
-            end
-        end
-    end
-end
-
--- Visual part for player hitbox
-local vis = Instance.new("Part", W)
-vis.Size = Vector3.new(5,5,5)
-vis.Anchored = true
-vis.CanCollide = false
-vis.Material = Enum.Material.ForceField
-vis.Transparency = 0.6
-vis.CastShadow = false
-vis.Shape = Enum.PartType.Ball
-
--- ESP frames
-local ESPFrames = {}
-for _,p in pairs(game.Players:GetPlayers()) do
-    if p~=P and p.Team~=P.Team then
-        local f = Instance.new("Frame", gui)
-        f.Size = UDim2.new(0,100,0,20)
-        f.BackgroundTransparency = 0.5
-        f.BackgroundColor3 = Color3.fromRGB(180,40,40)
-        local lbl = Instance.new("TextLabel", f)
-        lbl.Size = UDim2.new(1,0,1,0)
-        lbl.BackgroundTransparency = 1
-        lbl.TextColor3 = Color3.new(1,1,1)
-        lbl.Text = p.Name
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 14
-        ESPFrames[p] = f
-    end
-end
-
-game.Players.PlayerAdded:Connect(function(p)
-    if p~=P and p.Team~=P.Team then
-        local f = Instance.new("Frame", gui)
-        f.Size = UDim2.new(0,100,0,20)
-        f.BackgroundTransparency = 0.5
-        f.BackgroundColor3 = Color3.fromRGB(180,40,40)
-        local lbl = Instance.new("TextLabel", f)
-        lbl.Size = UDim2.new(1,0,1,0)
-        lbl.BackgroundTransparency = 1
-        lbl.TextColor3 = Color3.new(1,1,1)
-        lbl.Text = p.Name
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = 14
-        ESPFrames[p] = f
-    end
+toggle.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	if enabled then
+		toggle.Text = "Tắt Hitbox"
+		createHitbox()
+	else
+		toggle.Text = "Bật Hitbox"
+		if hitbox then hitbox:Destroy() hitbox = nil end
+	end
 end)
 
-game.Players.PlayerRemoving:Connect(function(p)
-    if ESPFrames[p] then ESPFrames[p]:Destroy() ESPFrames[p]=nil end
+mode.MouseButton1Click:Connect(function()
+	shape = (shape == "line") and "circle" or "line"
+	mode.Text = (shape == "line") and "Kiểu: Đường thẳng" or "Kiểu: Hình tròn"
+	if enabled then createHitbox() end
 end)
 
--- Main loop
-RS.RenderStepped:Connect(function()
-    local tool = P.Character and P.Character:FindFirstChild("Sword")
-    if not tool then vis.Parent=nil return end
-    local handle = tool:FindFirstChild("Handle")
-    if not handle then return end
-
-    -- Player hitbox up
-    local r = tonumber(npcBox.Text) or 5
-    if r>500 then r=500 elseif r<0.005 then r=0.005 end
-    vis.Size = Vector3.new(2,r,2)
-    vis.CFrame = handle.CFrame + Vector3.new(0,r/2,0)
-    vis.Parent = W
-
-    for _,v in pairs(game.Players:GetPlayers()) do
-        if v~=P and P.Team and v.Team~=P.Team then
-            local hrp = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local dx = math.abs(hrp.Position.X-handle.Position.X)
-                local dz = math.abs(hrp.Position.Z-handle.Position.Z)
-                local dy = hrp.Position.Y
-                if dx<=1 and dz<=1 and dy>=handle.Position.Y and dy<=handle.Position.Y+r then
-                    hit(hrp, handle)
-                end
-            end
-        end
-    end
-
-    -- NPC Hitbox
-    for npc,_ in pairs(NPCs) do
-        local hrp = npc:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dx = math.abs(hrp.Position.X-handle.Position.X)
-            local dz = math.abs(hrp.Position.Z-handle.Position.Z)
-            local dy = hrp.Position.Y
-            if dx<=1 and dz<=1 and dy>=handle.Position.Y and dy<=handle.Position.Y+r then
-                hit(hrp, handle)
-            end
-        end
-    end
-
-    -- ESP
-    if espEnabled then
-        for p,fr in pairs(ESPFrames) do
-            local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
-                fr.Visible = onScreen
-                fr.Position = UDim2.new(0,pos.X-50,0,pos.Y-10)
-            else
-                fr.Visible=false
-            end
-        end
-    end
+RunService.RenderStepped:Connect(function()
+	if enabled and hitbox and char:FindFirstChild("HumanoidRootPart") then
+		local root = char:FindFirstChild("HumanoidRootPart")
+		local cf = root.CFrame * CFrame.new(0, 0, -3)
+		hitbox.CFrame = cf
+	end
 end)
