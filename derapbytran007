@@ -1,0 +1,234 @@
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local plr = Players.LocalPlayer
+
+-- GUI
+local guiName = "SillyPanel"
+local oldGui = plr:FindFirstChildOfClass("PlayerGui"):FindFirstChild(guiName)
+if oldGui then oldGui:Destroy() end
+
+local gui = Instance.new("ScreenGui", plr:WaitForChild("PlayerGui"))
+gui.Name = guiName
+gui.ResetOnSpawn = false
+
+-- Main Frame
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0,400,0,300)
+frame.Position = UDim2.new(0.5,-200,0.5,-150)
+frame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+frame.BackgroundTransparency = 0.4
+frame.AnchorPoint = Vector2.new(0.5,0.5)
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,8)
+Instance.new("UIDragDetector", frame)
+
+-- Minimized Button 卐
+local minBtn = Instance.new("TextButton", gui)
+minBtn.Size = UDim2.new(0,40,0,40)
+minBtn.Position = UDim2.new(0.5,-20,0.5,-20)
+minBtn.Visible = false
+minBtn.Text = "卐"
+minBtn.TextColor3 = Color3.new(1,1,1)
+minBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Instance.new("UICorner", minBtn).CornerRadius = UDim.new(1,0)
+
+-- Dragging Minimized Button
+local draggingMin = false
+local dragStartMin, startPosMin
+minBtn.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType==Enum.UserInputType.Touch then
+		draggingMin = true
+		dragStartMin = input.Position
+		startPosMin = minBtn.Position
+		input.Changed:Connect(function()
+			if input.UserInputState==Enum.UserInputState.End then draggingMin=false end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if draggingMin and (input.UserInputType==Enum.UserInputType.MouseMovement or input.UserInputType==Enum.UserInputType.Touch) then
+		local delta = input.Position - dragStartMin
+		minBtn.Position = UDim2.new(startPosMin.X.Scale,startPosMin.X.Offset+delta.X,
+			startPosMin.Y.Scale,startPosMin.Y.Offset+delta.Y)
+	end
+end)
+
+-- Close / Minimize
+local closeBtn = Instance.new("TextButton", frame)
+closeBtn.Size = UDim2.new(0,25,0,25)
+closeBtn.Position = UDim2.new(1,-30,0,7)
+closeBtn.Text = "X"
+closeBtn.BackgroundTransparency = 1
+closeBtn.TextColor3 = Color3.new(1,1,1)
+Instance.new("UICorner", closeBtn)
+
+local lastPos = frame.Position
+closeBtn.MouseButton1Click:Connect(function()
+	lastPos = frame.Position
+	frame.Visible = false
+	minBtn.Visible = true
+end)
+
+minBtn.MouseButton1Click:Connect(function()
+	frame.Position = lastPos
+	frame.Visible = true
+	minBtn.Visible = false
+end)
+
+-- Hitbox TextBoxes
+local playerBox = Instance.new("TextBox", frame)
+playerBox.Size = UDim2.new(0.3,0,0.07,0)
+playerBox.Position = UDim2.new(0.05,0,0.85,0)
+playerBox.Text = "5" -- default
+playerBox.ClearTextOnFocus = false
+
+local npcBox = Instance.new("TextBox", frame)
+npcBox.Size = UDim2.new(0.3,0,0.07,0)
+npcBox.Position = UDim2.new(0.65,0,0.85,0)
+npcBox.Text = "5" -- default
+npcBox.ClearTextOnFocus = false
+
+-- Hitbox Part
+local hitboxPart = Instance.new("Part")
+hitboxPart.Anchored = true
+hitboxPart.CanCollide = false
+hitboxPart.Material = Enum.Material.ForceField
+hitboxPart.Transparency = 0.6
+hitboxPart.CastShadow = false
+hitboxPart.Parent = Workspace
+
+-- Hit function
+local function hit(p,h)
+	local c = p.Parent
+	local hum = c and c:FindFirstChildOfClass("Humanoid")
+	if hum and c.Name ~= plr.Name then
+		for _,part in pairs(c:GetChildren()) do
+			if part:IsA("BasePart") then
+				firetouchinterest(part,h,0)
+				firetouchinterest(part,h,1)
+			end
+		end
+	end
+end
+
+-- Sword Tip
+local function getSwordTip(tool)
+	local tip = tool:FindFirstChild("Tip")
+	if not tip then
+		local h = tool:FindFirstChild("Handle")
+		if h then return h.Position + h.CFrame.LookVector*(h.Size.Z/2) end
+	else
+		return tip.Position
+	end
+end
+
+-- Dynamic NPC hitbox
+local npcHitboxes = {}
+local function updateNpcHitboxes()
+	for _,npc in pairs(Workspace:FindFirstChild("NPCs") or {}:GetChildren()) do
+		if npc:IsA("Model") and not npcHitboxes[npc] then
+			npcHitboxes[npc] = npc
+		end
+	end
+end
+
+Workspace.ChildAdded:Connect(function(child)
+	if child.Parent==Workspace.NPCs then
+		npcHitboxes[child] = child
+	end
+end)
+
+Workspace.ChildRemoved:Connect(function(child)
+	if npcHitboxes[child] then
+		npcHitboxes[child]=nil
+	end
+end)
+
+-- ESP
+local espFrames = {}
+local espEnabled = true
+local function createEsp(player)
+	local frame = Instance.new("Frame", gui)
+	frame.Size = UDim2.new(0,100,0,20)
+	frame.BackgroundTransparency = 0.5
+	frame.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	local text = Instance.new("TextLabel", frame)
+	text.Size = UDim2.new(1,0,1,0)
+	text.Text = player.Name
+	text.BackgroundTransparency = 1
+	text.TextColor3 = Color3.new(1,1,1)
+	text.Font = Enum.Font.GothamBold
+	text.TextSize = 14
+	return frame
+end
+
+for _,v in pairs(Players:GetPlayers()) do
+	if v~=plr and v.Team~=plr.Team then espFrames[v]=createEsp(v) end
+end
+Players.PlayerAdded:Connect(function(p)
+	if p~=plr and p.Team~=plr.Team then espFrames[p]=createEsp(p) end
+end)
+Players.PlayerRemoving:Connect(function(p)
+	if espFrames[p] then espFrames[p]:Destroy() espFrames[p]=nil end
+end)
+
+-- Main loop
+RunService.RenderStepped:Connect(function()
+	local hue = tick()%1
+	local tool = plr.Character and plr.Character:FindFirstChild("Sword")
+	if tool then
+		local tip = getSwordTip(tool)
+		local length = tonumber(playerBox.Text) or 5
+		if length>2000 then length=2000 end
+		if length<1 then length=1 end
+		hitboxPart.Size = Vector3.new(2,length,2)
+		hitboxPart.CFrame = CFrame.new(tip+Vector3.new(0,length/2,0))
+		hitboxPart.Color = Color3.fromHSV(hue,1,1)
+
+		for _,v in pairs(Players:GetPlayers()) do
+			if v~=plr and v.Team~=plr.Team then
+				local hrp = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					local xDist = math.abs(hrp.Position.X-tip.X)
+					local zDist = math.abs(hrp.Position.Z-tip.Z)
+					local yPos = hrp.Position.Y
+					if xDist<=1 and zDist<=1 and yPos>=tip.Y and yPos<=tip.Y+length then
+						pcall(function() hit(hrp,tool.Handle) end)
+					end
+				end
+			end
+		end
+	end
+
+	-- NPC hitbox
+	local npcLength = tonumber(npcBox.Text) or 5
+	if npcLength>500 then npcLength=500 end
+	if npcLength<0.005 then npcLength=0.005 end
+	for _,npc in pairs(npcHitboxes) do
+		local npcHum = npc:FindFirstChildOfClass("Humanoid")
+		local npcRoot = npc:FindFirstChild("HumanoidRootPart")
+		if npcHum and npcRoot and tool then
+			local tip = getSwordTip(tool)
+			local xDist = math.abs(npcRoot.Position.X-tip.X)
+			local zDist = math.abs(npcRoot.Position.Z-tip.Z)
+			local yPos = npcRoot.Position.Y
+			if xDist<=1 and zDist<=1 and yPos>=tip.Y and yPos<=tip.Y+npcLength then
+				pcall(function() hit(npcRoot,tool.Handle) end)
+			end
+		end
+	end
+
+	-- ESP update
+	if espEnabled then
+		for p,f in pairs(espFrames) do
+			local hrp = p.Character and p.Character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				local pos, onScreen = workspace.CurrentCamera:WorldToViewportPoint(hrp.Position)
+				if onScreen then f.Position=UDim2.new(0,pos.X-50,0,pos.Y-10) f.Visible=true
+				else f.Visible=false end
+			end
+		end
+	end
+end)
