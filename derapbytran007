@@ -1,95 +1,156 @@
---// Derap Hitbox by Tran & An
+local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UIS = game:GetService("UserInputService")
-local player = Players.LocalPlayer
-local char = player.Character or player.CharacterAdded:Wait()
-local humanoid = char:WaitForChild("Humanoid")
+local plr = Players.LocalPlayer
 
--- GUI
-local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
-gui.Name = "derap"
+-- Xóa GUI cũ
+local oldGui = plr:FindFirstChildOfClass("PlayerGui"):FindFirstChild("ToolReachGUI")
+if oldGui then oldGui:Destroy() end
+
+-- GUI chính
+local gui = Instance.new("ScreenGui")
+gui.Name = "ToolReachGUI"
 gui.ResetOnSpawn = false
+gui.Parent = plr:WaitForChild("PlayerGui")
 
--- khung chính
-local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 160, 0, 100)
-frame.Position = UDim2.new(0.05, 0, 0.6, 0)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-frame.Active = true
-frame.Draggable = true
-frame.Visible = true
+local f = Instance.new("Frame", gui)
+f.Size = UDim2.new(0,180,0,100)
+f.Position = UDim2.new(0.5,-90,0.5,-50)
+f.BackgroundColor3 = Color3.new(0,0,0)
+f.BackgroundTransparency = 0.4
+f.AnchorPoint = Vector2.new(0.5,0.5)
+Instance.new("UICorner", f).CornerRadius = UDim.new(0,8)
+Instance.new("UIDragDetector", f)
 
--- nút bật/tắt hitbox
-local toggle = Instance.new("TextButton", frame)
-toggle.Size = UDim2.new(0, 140, 0, 25)
-toggle.Position = UDim2.new(0, 10, 0, 10)
-toggle.Text = "Bật Hitbox"
-toggle.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- TextBox chỉnh size
+local b = Instance.new("TextBox", f)
+b.Size = UDim2.new(0.8,0,0.3,0)
+b.Position = UDim2.new(0.1,0,0.1,0)
+b.BackgroundTransparency = 0.9
+b.TextColor3 = Color3.new(1,1,1)
+b.Text = "5"
+b.TextWrapped = true
+b.ClearTextOnFocus = false
+b.Font = Enum.Font.BuilderSansBold
+b.TextSize = 14
+Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
 
--- nút đổi kiểu hitbox
-local mode = Instance.new("TextButton", frame)
-mode.Size = UDim2.new(0, 140, 0, 25)
-mode.Position = UDim2.new(0, 10, 0, 45)
-mode.Text = "Kiểu: Đường thẳng"
-mode.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-mode.TextColor3 = Color3.fromRGB(255, 255, 255)
+-- Nút chọn Circle / Line
+local circleBtn = Instance.new("TextButton", f)
+circleBtn.Size = UDim2.new(0.4,-5,0.2,0)
+circleBtn.Position = UDim2.new(0,5,0.6,0)
+circleBtn.Text = "Circle"
+circleBtn.TextColor3 = Color3.new(1,1,1)
+circleBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Instance.new("UICorner", circleBtn)
 
--- label tạm “By Tran & An”
-local bylabel = Instance.new("TextLabel", gui)
-bylabel.Text = "By Tran & An"
-bylabel.Size = UDim2.new(0, 200, 0, 50)
-bylabel.Position = UDim2.new(0.7, 0, 0.05, 0)
-bylabel.TextScaled = true
-bylabel.BackgroundTransparency = 1
-bylabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-task.delay(5, function() bylabel:Destroy() end)
+local lineBtn = Instance.new("TextButton", f)
+lineBtn.Size = UDim2.new(0.4,-5,0.2,0)
+lineBtn.Position = UDim2.new(0.6,0,0.6,0)
+lineBtn.Text = "Line"
+lineBtn.TextColor3 = Color3.new(1,1,1)
+lineBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+Instance.new("UICorner", lineBtn)
 
--- logic hitbox
-local enabled = false
-local shape = "line"
-local hitbox
+-- Hiện chữ "by: tran - Derap" góc phải
+task.spawn(function()
+	local label = Instance.new("TextLabel", gui)
+	label.Text = "by: tran - Derap"
+	label.TextColor3 = Color3.new(1,1,1)
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.new(0,200,0,25)
+	label.Position = UDim2.new(1,-210,1,-30)
+	label.Font = Enum.Font.BuilderSansMedium
+	label.TextScaled = true
+	task.wait(5)
+	label:Destroy()
+end)
 
+-- Kiểu hitbox
+local hitboxType = "Circle"
+circleBtn.MouseButton1Click:Connect(function() hitboxType = "Circle" end)
+lineBtn.MouseButton1Click:Connect(function() hitboxType = "Line" end)
+
+-- Hitbox Part
+local vis
 local function createHitbox()
-	if hitbox then hitbox:Destroy() end
-	hitbox = Instance.new("Part")
-	hitbox.Anchored = true
-	hitbox.CanCollide = false
-	hitbox.Material = Enum.Material.Neon
-	hitbox.Color = Color3.fromRGB(255, 0, 0)
-	hitbox.Transparency = 0.4
-	hitbox.Parent = workspace
+	if vis then vis:Destroy() end
+	vis = Instance.new("Part", Workspace)
+	vis.Anchored = true
+	vis.CanCollide = false
+	vis.Material = Enum.Material.ForceField
+	vis.Transparency = 0.6
+	vis.CastShadow = false
+	vis.BottomSurface = Enum.SurfaceType.Smooth
+	vis.TopSurface = Enum.SurfaceType.Smooth
+end
 
-	if shape == "line" then
-		hitbox.Size = Vector3.new(0.4, 0.4, 5)
-	else
-		hitbox.Shape = Enum.PartType.Ball
-		hitbox.Size = Vector3.new(3, 3, 3)
+-- Gây damage
+local function hit(p,h)
+	local c = p.Parent
+	local hum = c and c:FindFirstChildOfClass("Humanoid")
+	if hum and c.Name ~= plr.Name then
+		for _,part in pairs(c:GetChildren()) do
+			if part:IsA("BasePart") then
+				firetouchinterest(part,h,0)
+				firetouchinterest(part,h,1)
+			end
+		end
 	end
 end
 
-toggle.MouseButton1Click:Connect(function()
-	enabled = not enabled
-	if enabled then
-		toggle.Text = "Tắt Hitbox"
-		createHitbox()
-	else
-		toggle.Text = "Bật Hitbox"
-		if hitbox then hitbox:Destroy() hitbox = nil end
-	end
-end)
-
-mode.MouseButton1Click:Connect(function()
-	shape = (shape == "line") and "circle" or "line"
-	mode.Text = (shape == "line") and "Kiểu: Đường thẳng" or "Kiểu: Hình tròn"
-	if enabled then createHitbox() end
-end)
-
+-- RenderStepped
+local hue = 0
 RunService.RenderStepped:Connect(function()
-	if enabled and hitbox and char:FindFirstChild("HumanoidRootPart") then
-		local root = char:FindFirstChild("HumanoidRootPart")
-		local cf = root.CFrame * CFrame.new(0, 0, -3)
-		hitbox.CFrame = cf
+	hue = (hue + 0.002) % 1
+
+	local tool = plr.Character and plr.Character:FindFirstChild("Sword")
+	if not tool then
+		if vis then vis:Destroy() vis=nil end
+		return
+	end
+
+	local h = tool:FindFirstChild("Handle")
+	if not h then return end
+	if not vis then createHitbox() end
+
+	local r = tonumber(b.Text) or 5
+	if r > 2000 then r = 2000 b.Text="2000" end
+	if r < 1 then r=1 b.Text="1" end
+
+	vis.Color = Color3.fromHSV(hue,1,1)
+
+	if hitboxType=="Circle" then
+		vis.Shape = Enum.PartType.Ball
+		vis.Size = Vector3.new(r,r,r)
+		vis.CFrame = h.CFrame
+	else
+		-- Đường thẳng phóng theo hướng kiếm (trước mặt, không ra sau lưng)
+		vis.Shape = Enum.PartType.Block
+		local length = r
+		local width = 2
+		vis.Size = Vector3.new(width, width, length)
+		local forward = -h.CFrame.LookVector -- đảo hướng để ra phía trước kiếm
+		local pos = h.Position + forward * (length / 2)
+		vis.CFrame = CFrame.new(pos, pos + forward)
+	end
+
+	-- Gây damage
+	for _,v in pairs(Players:GetPlayers()) do
+		if v ~= plr and v.Team and plr.Team and v.Team ~= plr.Team then
+			local hrp = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
+			if hrp and h then
+				if hitboxType=="Circle" then
+					if (hrp.Position - h.Position).Magnitude <= r then
+						pcall(function() hit(hrp,h) end)
+					end
+				else
+					local dist = (hrp.Position - h.Position).Magnitude
+					if dist <= r then
+						pcall(function() hit(hrp,h) end)
+					end
+				end
+			end
+		end
 	end
 end)
