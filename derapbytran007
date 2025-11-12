@@ -1,95 +1,286 @@
-local Workspace = game:GetService("Workspace")
+if getgenv().V2G4m3Cl0s3 then return end
+getgenv().V2G4m3Cl0s3 = true
+
+-- Services
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local plr = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
 
--- Xóa GUI cũ
-local oldGui = plr:FindFirstChildOfClass("PlayerGui"):FindFirstChild("ToolReachGUI")
+-- Preferences GUI
+local Preferences = LocalPlayer.PlayerGui:WaitForChild("Menus"):WaitForChild("Preferences")
+Preferences.Size = UDim2.new(0,600,0,710)
+
+-- AimBot GUI
+local AutoClick = Preferences.Frame:WaitForChild("SwordAutoClick")
+local Sniper = AutoClick:Clone()
+Sniper.Name = ""
+Sniper.Parent = Preferences.Frame
+local Label = Sniper:WaitForChild("TextLabel")
+Label.Text = "AimBot V2"
+
+task.spawn(function()
+	while true do
+		local t = tick()
+		Label.TextColor3 = Color3.fromHSV((t%5)/5,1,1)
+		task.wait(0.1)
+	end
+end)
+
+local Button = Sniper:WaitForChild("Button")
+local Switch = Button:WaitForChild("SwitchState")
+Switch.Value = true
+Button.MouseButton1Click:Connect(function()
+	Switch.Value = not Switch.Value
+end)
+
+-- AimBot variables
+local Remote = ReplicatedStorage:WaitForChild("Events"):WaitForChild("Remote"):WaitForChild("ShotTarget")
+local ToolName = "Sniper"
+local Character
+local bulletSpeed = 800
+
+local function updateCharacter()
+	Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+end
+updateCharacter()
+LocalPlayer.CharacterAdded:Connect(updateCharacter)
+
+local function getEquippedTool()
+	if not Character then return end
+	for _, tool in ipairs(Character:GetChildren()) do
+		if tool:IsA("Tool") and tool.Name == ToolName then
+			return tool
+		end
+	end
+end
+
+local function getClosestTarget()
+	if not Character or not Character:FindFirstChild("Head") then return end
+	local origin = Character.Head.Position
+	local closestPlayer, shortestDistance, aimPosition
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer and player.Team ~= LocalPlayer.Team and player.Team then
+			local targetChar = player.Character
+			local head = targetChar and targetChar:FindFirstChild("Head")
+			local humanoid = targetChar and targetChar:FindFirstChild("Humanoid")
+			local root = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+			if head and humanoid and humanoid.Health > 0 and root then
+				local distance = (head.Position - origin).Magnitude
+				local travelTime = distance / bulletSpeed
+				local predictedPosition = head.Position + root.Velocity * travelTime
+				local ray = Ray.new(origin, (predictedPosition - origin).Unit * 1000)
+				local hit = workspace:FindPartOnRay(ray, Character)
+				if hit and hit:IsDescendantOf(targetChar) then
+					if not shortestDistance or distance < shortestDistance then
+						shortestDistance = distance
+						closestPlayer = targetChar
+						aimPosition = predictedPosition
+					end
+				end
+			end
+		end
+	end
+	return aimPosition
+end
+
+task.spawn(function()
+	while true do
+		if Switch.Value then
+			local tool = getEquippedTool()
+			if tool then
+				local position = getClosestTarget()
+				if position then
+					Remote:FireServer(position, ToolName)
+				end
+			end
+		end
+		task.wait()
+	end
+end)
+
+-- HITBOX & ESP GUI
+local oldGui = LocalPlayer:FindFirstChildOfClass("PlayerGui"):FindFirstChild("ToolReachGUI")
 if oldGui then oldGui:Destroy() end
 
--- GUI chính
 local gui = Instance.new("ScreenGui")
 gui.Name = "ToolReachGUI"
 gui.ResetOnSpawn = false
-gui.Parent = plr:WaitForChild("PlayerGui")
+gui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local f = Instance.new("Frame", gui)
-f.Size = UDim2.new(0,180,0,100)
-f.Position = UDim2.new(0.5,-90,0.5,-50)
-f.BackgroundColor3 = Color3.new(0,0,0)
-f.BackgroundTransparency = 0.4
-f.AnchorPoint = Vector2.new(0.5,0.5)
-Instance.new("UICorner", f).CornerRadius = UDim.new(0,8)
-Instance.new("UIDragDetector", f)
+f.Size = UDim2.new(0,210,0,140)
+f.Position = UDim2.new(0.5,-105,0.5,-70)
+f.BackgroundColor3 = Color3.fromRGB(0,10,20)
+f.BackgroundTransparency = 0.1
+f.BorderSizePixel = 0
+Instance.new("UICorner", f).CornerRadius = UDim.new(0,10)
+Instance.new("UIStroke", f).Color = Color3.fromRGB(0,255,180)
+Instance.new("UIStroke", f).Thickness = 2
 
--- TextBox chỉnh size
+-- Title
+local title = Instance.new("TextLabel", f)
+title.Size = UDim2.new(1,0,0.2,0)
+title.Position = UDim2.new(0,0,0,0)
+title.Text = "🔹 HITBOX & ESP 🔹"
+title.TextColor3 = Color3.fromRGB(0,255,200)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.TextStrokeTransparency = 0.5
+
+-- Hitbox size
 local b = Instance.new("TextBox", f)
-b.Size = UDim2.new(0.8,0,0.3,0)
-b.Position = UDim2.new(0.1,0,0.1,0)
-b.BackgroundTransparency = 0.9
-b.TextColor3 = Color3.new(1,1,1)
+b.Size = UDim2.new(0.8,0,0.2,0)
+b.Position = UDim2.new(0.1,0,0.25,0)
+b.BackgroundColor3 = Color3.fromRGB(10,20,25)
+b.TextColor3 = Color3.fromRGB(0,255,180)
+b.PlaceholderText = "Hitbox size"
 b.Text = "5"
-b.TextWrapped = true
 b.ClearTextOnFocus = false
-b.Font = Enum.Font.BuilderSansBold
-b.TextSize = 14
+b.Font = Enum.Font.GothamBold
+b.TextScaled = true
 Instance.new("UICorner", b).CornerRadius = UDim.new(1,0)
+local bstroke = Instance.new("UIStroke", b)
+bstroke.Color = Color3.fromRGB(0,255,180)
+bstroke.Thickness = 1.6
 
--- Nút chọn Circle / Line
+-- Circle / Line buttons
 local circleBtn = Instance.new("TextButton", f)
-circleBtn.Size = UDim2.new(0.4,-5,0.2,0)
-circleBtn.Position = UDim2.new(0,5,0.6,0)
-circleBtn.Text = "Circle"
-circleBtn.TextColor3 = Color3.new(1,1,1)
-circleBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+circleBtn.Size = UDim2.new(0.4,-5,0.18,0)
+circleBtn.Position = UDim2.new(0.05,0,0.52,0)
+circleBtn.Text = "⚪ Circle"
+circleBtn.TextColor3 = Color3.fromRGB(0,255,180)
+circleBtn.BackgroundColor3 = Color3.fromRGB(15,30,40)
+circleBtn.Font = Enum.Font.GothamBold
+circleBtn.TextScaled = true
 Instance.new("UICorner", circleBtn)
 
 local lineBtn = Instance.new("TextButton", f)
-lineBtn.Size = UDim2.new(0.4,-5,0.2,0)
-lineBtn.Position = UDim2.new(0.6,0,0.6,0)
-lineBtn.Text = "Line"
-lineBtn.TextColor3 = Color3.new(1,1,1)
-lineBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
+lineBtn.Size = UDim2.new(0.4,-5,0.18,0)
+lineBtn.Position = UDim2.new(0.55,0,0.52,0)
+lineBtn.Text = "〰 Line"
+lineBtn.TextColor3 = Color3.fromRGB(0,255,180)
+lineBtn.BackgroundColor3 = Color3.fromRGB(15,30,40)
+lineBtn.Font = Enum.Font.GothamBold
+lineBtn.TextScaled = true
 Instance.new("UICorner", lineBtn)
 
--- Hiện chữ "by: tran - Derap" góc phải
-task.spawn(function()
-	local label = Instance.new("TextLabel", gui)
-	label.Text = "by: tran - Derap"
-	label.TextColor3 = Color3.new(1,1,1)
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.new(0,200,0,25)
-	label.Position = UDim2.new(1,-210,1,-30)
-	label.Font = Enum.Font.BuilderSansMedium
-	label.TextScaled = true
-	task.wait(5)
-	label:Destroy()
+local espBtn = Instance.new("TextButton", f)
+espBtn.Size = UDim2.new(0.9,0,0.18,0)
+espBtn.Position = UDim2.new(0.05,0,0.75,0)
+espBtn.Text = "ESP: OFF"
+espBtn.TextColor3 = Color3.fromRGB(0,255,180)
+espBtn.BackgroundColor3 = Color3.fromRGB(10,25,35)
+espBtn.Font = Enum.Font.GothamBold
+espBtn.TextScaled = true
+Instance.new("UICorner", espBtn)
+
+local minimizeBtn = Instance.new("TextButton", f)
+minimizeBtn.Size = UDim2.new(0,30,0,30)
+minimizeBtn.Position = UDim2.new(1,-35,0,5)
+minimizeBtn.Text = "_"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextScaled = true
+minimizeBtn.TextColor3 = Color3.fromRGB(255,255,255)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(0,150,200)
+
+-- Hitbox type
+local hitboxType = "Circle"
+circleBtn.MouseButton1Click:Connect(function()
+	hitboxType = "Circle"
+	circleBtn.BackgroundColor3 = Color3.fromRGB(0,40,20)
+	lineBtn.BackgroundColor3 = Color3.fromRGB(15,30,40)
+end)
+lineBtn.MouseButton1Click:Connect(function()
+	hitboxType = "Line"
+	lineBtn.BackgroundColor3 = Color3.fromRGB(0,40,20)
+	circleBtn.BackgroundColor3 = Color3.fromRGB(15,30,40)
 end)
 
--- Kiểu hitbox
-local hitboxType = "Circle"
-circleBtn.MouseButton1Click:Connect(function() hitboxType = "Circle" end)
-lineBtn.MouseButton1Click:Connect(function() hitboxType = "Line" end)
+-- ESP logic
+local espEnabled = false
+local espObjects = {}
+local function pointToLineDistance(point,lineStart,lineEnd)
+	local lineDir = lineEnd - lineStart
+	local lineLength = lineDir.Magnitude
+	if lineLength == 0 then return (point - lineStart).Magnitude end
+	local t = ((point - lineStart):Dot(lineDir)) / (lineLength^2)
+	t = math.clamp(t,0,1)
+	local projection = lineStart + lineDir * t
+	return (point - projection).Magnitude
+end
+local function createESP(player)
+	if not player.Character then return end
+	local hum = player.Character:FindFirstChildOfClass("Humanoid")
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+	if not hum or not hrp then return end
+	if not player.Team then return end
+	local outline = Instance.new("Highlight")
+	outline.Adornee = player.Character
+	outline.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	outline.FillTransparency = 1
+	outline.OutlineTransparency = 0
+	outline.OutlineColor = player.Team.Name == "Red" and Color3.fromRGB(255,50,50) or Color3.fromRGB(50,120,255)
+	outline.Parent = gui
+	local billboard = Instance.new("BillboardGui")
+	billboard.Adornee = hrp
+	billboard.Size = UDim2.new(0,60,0,20)
+	billboard.StudsOffset = Vector3.new(0,3,0)
+	billboard.AlwaysOnTop = true
+	local textLabel = Instance.new("TextLabel",billboard)
+	textLabel.Size = UDim2.new(1,0,1,0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.Font = Enum.Font.GothamBold
+	textLabel.TextScaled = true
+	textLabel.TextColor3 = player.Team.Name == "Red" and Color3.fromRGB(255,70,70) or Color3.fromRGB(0,255,180)
+	textLabel.Text = tostring(math.floor(hum.Health))
+	hum.HealthChanged:Connect(function(hp) textLabel.Text = tostring(math.floor(hp)) end)
+	billboard.Parent = gui
+	espObjects[player] = {outline,billboard}
+end
+local function clearESP(player)
+	if espObjects[player] then
+		for _,obj in pairs(espObjects[player]) do if obj and obj.Parent then obj:Destroy() end end
+		espObjects[player]=nil
+	end
+end
 
--- Hitbox Part
+espBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	espBtn.Text = espEnabled and "ESP: ON" or "ESP: OFF"
+	espBtn.BackgroundColor3 = espEnabled and Color3.fromRGB(0,50,25) or Color3.fromRGB(10,25,35)
+	for _,p in pairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer then clearESP(p) if espEnabled then createESP(p) end end
+	end
+end)
+
+local function setupPlayer(player)
+	player.CharacterAdded:Connect(function() task.wait(0.5) if espEnabled then createESP(player) end end)
+	player.CharacterRemoving:Connect(function() clearESP(player) end)
+	player.AncestryChanged:Connect(function(_,parent) if not parent then clearESP(player) end end)
+end
+for _,p in pairs(Players:GetPlayers()) do if p~=LocalPlayer then setupPlayer(p) end end
+Players.PlayerAdded:Connect(setupPlayer)
+Players.PlayerRemoving:Connect(clearESP)
+
+-- HITBOX
 local vis
 local function createHitbox()
 	if vis then vis:Destroy() end
-	vis = Instance.new("Part", Workspace)
-	vis.Anchored = true
-	vis.CanCollide = false
-	vis.Material = Enum.Material.ForceField
-	vis.Transparency = 0.6
-	vis.CastShadow = false
-	vis.BottomSurface = Enum.SurfaceType.Smooth
-	vis.TopSurface = Enum.SurfaceType.Smooth
+	vis = Instance.new("Part",Workspace)
+	vis.Anchored=true
+	vis.CanCollide=false
+	vis.Material=Enum.Material.ForceField
+	vis.Transparency=0.3
+	vis.CastShadow=false
 end
-
--- Gây damage
 local function hit(p,h)
-	local c = p.Parent
-	local hum = c and c:FindFirstChildOfClass("Humanoid")
-	if hum and c.Name ~= plr.Name then
+	local c=p.Parent
+	local hum=c and c:FindFirstChildOfClass("Humanoid")
+	if hum and c.Name~=LocalPlayer.Name then
 		for _,part in pairs(c:GetChildren()) do
 			if part:IsA("BasePart") then
 				firetouchinterest(part,h,0)
@@ -99,56 +290,60 @@ local function hit(p,h)
 	end
 end
 
--- RenderStepped
-local hue = 0
-RunService.RenderStepped:Connect(function()
-	hue = (hue + 0.002) % 1
-
-	local tool = plr.Character and plr.Character:FindFirstChild("Sword")
-	if not tool then
-		if vis then vis:Destroy() vis=nil end
-		return
+-- GUI kéo mobile
+local dragInput
+f.InputBegan:Connect(function(input)
+	if input.UserInputType==Enum.UserInputType.Touch then
+		dragInput = input
+		input.Changed:Connect(function() if input.UserInputState==Enum.UserInputState.End then dragInput=nil end end)
 	end
+end)
+f.InputChanged:Connect(function(input) if input==dragInput then f.Position=UDim2.new(0,input.Position.X,0,input.Position.Y) end end)
+UserInputService.InputChanged:Connect(function(input) if input==dragInput then f.Position=UDim2.new(0,input.Position.X,0,input.Position.Y) end end)
 
+-- Minimize
+local minimized=false
+minimizeBtn.MouseButton1Click:Connect(function()
+	minimized = not minimized
+	for _,v in pairs(f:GetChildren()) do if v~=minimizeBtn then v.Visible = not minimized end end
+end)
+
+-- RenderStepped Hitbox
+RunService.RenderStepped:Connect(function()
+	local tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Sword")
+	if not tool then if vis then vis:Destroy() vis=nil end return end
 	local h = tool:FindFirstChild("Handle")
 	if not h then return end
 	if not vis then createHitbox() end
-
 	local r = tonumber(b.Text) or 5
-	if r > 2000 then r = 2000 b.Text="2000" end
-	if r < 1 then r=1 b.Text="1" end
-
-	vis.Color = Color3.fromHSV(hue,1,1)
-
+	if r>2000 then r=2000 b.Text="2000" end
+	if r<1 then r=1 b.Text="1" end
+	vis.Color = Color3.fromRGB(0,255,180)
+	vis.Transparency = 0.3
 	if hitboxType=="Circle" then
-		vis.Shape = Enum.PartType.Ball
-		vis.Size = Vector3.new(r,r,r)
-		vis.CFrame = h.CFrame
+		vis.Shape=Enum.PartType.Ball
+		vis.Size=Vector3.new(r,r,r)
+		vis.CFrame=h.CFrame
 	else
-		-- Đường thẳng phóng theo hướng kiếm (trước mặt, không ra sau lưng)
-		vis.Shape = Enum.PartType.Block
-		local length = r
-		local width = 2
-		vis.Size = Vector3.new(width, width, length)
-		local forward = -h.CFrame.LookVector -- đảo hướng để ra phía trước kiếm
-		local pos = h.Position + forward * (length / 2)
-		vis.CFrame = CFrame.new(pos, pos + forward)
+		vis.Shape=Enum.PartType.Block
+		local length=r
+		local width=2
+		vis.Size=Vector3.new(width,width,length)
+		local forward=-h.CFrame.LookVector
+		local pos=h.Position+forward*(length/2)
+		vis.CFrame=CFrame.new(pos,pos+forward)
 	end
-
-	-- Gây damage
 	for _,v in pairs(Players:GetPlayers()) do
-		if v ~= plr and v.Team and plr.Team and v.Team ~= plr.Team then
+		if v~=LocalPlayer and v.Team and LocalPlayer.Team and v.Team~=LocalPlayer.Team then
 			local hrp = v.Character and v.Character:FindFirstChild("HumanoidRootPart")
 			if hrp and h then
 				if hitboxType=="Circle" then
-					if (hrp.Position - h.Position).Magnitude <= r then
-						pcall(function() hit(hrp,h) end)
-					end
+					if (hrp.Position - h.Position).Magnitude <= r then pcall(function() hit(hrp,h) end) end
 				else
-					local dist = (hrp.Position - h.Position).Magnitude
-					if dist <= r then
-						pcall(function() hit(hrp,h) end)
-					end
+					local forward=-h.CFrame.LookVector
+					local lineStart=h.Position
+					local lineEnd=h.Position+forward*r
+					if pointToLineDistance(hrp.Position,lineStart,lineEnd)<=1 then pcall(function() hit(hrp,h) end) end
 				end
 			end
 		end
